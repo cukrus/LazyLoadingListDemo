@@ -1,5 +1,6 @@
 import 'dart:math';
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:lazy_loading_list_demo/model/shop_item.dart';
 import 'package:lazy_loading_list_demo/service/shop_item_service.dart';
@@ -52,7 +53,7 @@ class ListScreen extends StatefulWidget {
 }
 
 class _ListScreenState extends State<ListScreen> {
-  final _pairList = <ShopItem>[];
+  final _itemList = <ShopItem>[];
   final _biggerFont = const TextStyle(fontSize: 18.0);
   final _itemFetcher = _ItemFetcher();
 
@@ -78,7 +79,7 @@ class _ListScreenState extends State<ListScreen> {
       } else {
         setState(() {
           _isLoading = false;
-          _pairList.addAll(fetchedList);
+          _itemList.addAll(fetchedList);
         });
       }
     });
@@ -87,9 +88,9 @@ class _ListScreenState extends State<ListScreen> {
   @override
   Widget build(BuildContext context) {
     return ListView.builder(
-      itemCount: _hasMore ? _pairList.length + 1 : _pairList.length,
+      itemCount: _hasMore ? _itemList.length + 1 : _itemList.length,
       itemBuilder: (BuildContext context, int index) {
-        if (index >= _pairList.length) {
+        if (index >= _itemList.length) {
           if (!_isLoading) {
             _loadMore();
           }
@@ -102,10 +103,53 @@ class _ListScreenState extends State<ListScreen> {
           );
         }
         return ListTile(
-          leading: Text(index.toString(), style: _biggerFont),
-          title: Text(_pairList[index].title!, style: _biggerFont),
+          leading: CachedNetworkImage(
+            imageUrl: _itemList[index].photoUrl!,
+            placeholder: (context, url) => const SizedBox(
+              child: CircularProgressIndicator(),
+              height: 24,
+              width: 24,
+            ),
+            errorWidget: (context, url, error) =>
+                const Icon(Icons.error, size: 24),
+          ),
+          title: Text(_itemList[index].title!, style: _biggerFont),
+          onTap: () => showDialog(
+              context: context,
+              builder: (cntxt) =>
+                  Dialog(child: _ShopItemDetails(_itemList[index]))),
         );
       },
+    );
+  }
+}
+
+class _ShopItemDetails extends StatefulWidget {
+  final ShopItem shopItem;
+
+  const _ShopItemDetails(this.shopItem, {Key? key}) : super(key: key);
+
+  @override
+  State<StatefulWidget> createState() => _ShopItemDetailsState();
+}
+
+class _ShopItemDetailsState extends State<_ShopItemDetails> {
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        CachedNetworkImage(
+          imageUrl: widget.shopItem.photoUrl!,
+          placeholder: (context, url) => const CircularProgressIndicator(),
+          errorWidget: (context, url, error) => const Icon(Icons.error),
+        ),
+        Text(widget.shopItem.title!),
+        ListTile(leading: const Text("Kaina:"), title: Text("${widget.shopItem.price!}")),
+        ListTile(leading: const Text("Aprašymas:"), title: Text(widget.shopItem.description!)),
+        ListTile(leading: const Text("Gamintojas:"), title: Text(widget.shopItem.manufacturer!)),
+        ListTile(leading: const Text("Laikymo Sąlygos:"), title: Text(widget.shopItem.storageInfo!)),
+      ],
     );
   }
 }
