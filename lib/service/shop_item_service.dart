@@ -1,5 +1,7 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
+import 'package:lazy_loading_list_demo/cache/cache_manager.dart';
 import 'package:lazy_loading_list_demo/model/shop_item.dart';
 import 'package:http/http.dart' as http;
 
@@ -22,13 +24,25 @@ class ShopItemService {
     if (from < 0 || to <= from) {
       return null;
     }
-    List<ShopItem> generated = List.generate(to - from, (index) => ShopItem.generate(from++));
-    var url = Uri.parse('http://postman-echo.com/post');
-    var response = await http.post(url, body: jsonEncode(generated));
-    if (response.statusCode != 200) return null;
-    Map<String, dynamic> responseBody = jsonDecode(response.body);
-    List<dynamic> decodedData = jsonDecode(responseBody['data']);
     List<ShopItem> fetched = <ShopItem>[];
+    var url = Uri.parse('http://postman-echo.com/post?from=$from&to=$to');
+    String responseBodyStr;
+    var cachedFileInfo =
+        await CustomCacheManager.instance.getFileFromCache(url.toString());
+    if (cachedFileInfo != null && await cachedFileInfo.file.exists()) {
+      responseBodyStr = await cachedFileInfo.file.readAsString();
+    } else {
+      List<ShopItem> generated =
+          List.generate(to - from, (index) => ShopItem.generate(from++));
+      var response = await http.post(url, body: jsonEncode(generated));
+      if (response.statusCode != 200) return null;
+      responseBodyStr = response.body;
+      CustomCacheManager.instance.putFile(
+          url.toString(), Uint8List.fromList(responseBodyStr.codeUnits),
+          maxAge: const Duration(hours: 1));
+    }
+    Map<String, dynamic> responseBody = jsonDecode(responseBodyStr);
+    List<dynamic> decodedData = jsonDecode(responseBody['data']);
     for (var element in decodedData) {
       fetched.add(ShopItem.fromJson(element));
     }
